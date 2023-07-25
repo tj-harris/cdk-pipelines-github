@@ -155,6 +155,16 @@ export interface GitHubWorkflowProps extends PipelineBaseProps {
    * @see https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#example-only-run-job-for-specific-repository
    */
   readonly jobSettings?: JobSettings;
+
+  /**
+   * Whether or not to use `actions/cache` to store the synthesized `cdk.out` directory. Assets are stored for reuse in later steps.
+   * Stages with a large number of files as assets may see significantly faster build times when caching. Default behavior is to manage assets
+   * with `actions/upload-artifact` and `actions/download-artifact`
+   *
+   * @see https://docs.github.com/en/actions/using-workflows/caching-dependencies-to-speed-up-workflows
+   * @default false
+   */
+  readonly cacheAssets?: boolean;
 }
 
 /**
@@ -189,6 +199,7 @@ export class GitHubWorkflow extends PipelineBase {
   // in order to keep track of if this pipeline has been built so we can
   // catch later calls to addWave() or addStage()
   private builtGH = false;
+  private cacheAssets = false;
 
   constructor(scope: Construct, id: string, props: GitHubWorkflowProps) {
     super(scope, id, props);
@@ -221,6 +232,7 @@ export class GitHubWorkflow extends PipelineBase {
 
     this.runner = props.runner ?? github.Runner.UBUNTU_LATEST;
     this.publishAssetsAuthRegion = props.publishAssetsAuthRegion ?? 'us-west-2';
+    this.cacheAssets = props.cacheAssets ?? false;
   }
 
   /**
@@ -520,7 +532,7 @@ export class GitHubWorkflow extends PipelineBase {
       name: `Publish ${jobId}`,
       run: `/bin/bash ./cdk.out/${path.relative(cdkoutDir, publishStepFile)}`,
     };
-
+    const retrieveAssetsSteps = this.cacheAssets ? this.stepsToCacheAssembly(cdkoutDir) : this.stepsToDownloadAssembly(cdkoutDir);
     return {
       id: jobId,
       definition: {
@@ -536,7 +548,7 @@ export class GitHubWorkflow extends PipelineBase {
           [ASSET_HASH_NAME]: `\${{ steps.Publish.outputs.${ASSET_HASH_NAME} }}`,
         },
         steps: [
-          ...this.stepsToDownloadAssembly(cdkoutDir),
+          ...retrieveAssetsSteps,
           {
             name: 'Install',
             run: `npm install --no-save cdk-assets${installSuffix}`,
@@ -641,6 +653,7 @@ export class GitHubWorkflow extends PipelineBase {
       run: step.installCommands.join('\n'),
     }] : [];
 
+    const uploadAssetsSteps = this.cacheAssets ? this.stepsToCacheAssembly(cdkOut.directory) : this.stepsToUploadAssembly(cdkOut.directory);
     return {
       id: node.uniqueId,
       definition: {
@@ -660,12 +673,13 @@ export class GitHubWorkflow extends PipelineBase {
           ...this.stepsToCheckout(),
           ...this.preBuildSteps,
           ...installSteps,
+          ...this.cacheAssets ? this.stepsToCacheAssembly(cdkOut.directory) : [],
           {
             name: 'Build',
             run: step.commands.join('\n'),
           },
           ...this.postBuildSteps,
-          ...this.stepsToUploadAssembly(cdkOut.directory),
+          ...uploadAssetsSteps,
         ],
       },
     };
@@ -830,6 +844,23 @@ export class GitHubWorkflow extends PipelineBase {
         uses: 'actions/checkout@v3',
       },
     ];
+  }
+
+  private stepsToCacheAssembly(dir: string): github.JobStep[] {
+    if (this.preSynthed) {
+      return [];
+    }
+    return [{
+      name: `Synch cache ${CDKOUT_ARTIFACT}`,
+      uses: 'actions/cache@v3',
+      with: {
+        'key': CDKOUT_ARTIFACT + '-${{ github.run_id }}',
+        'path': dir,
+        'restore-keys': [
+          CDKOUT_ARTIFACT + '-',
+        ],
+      },
+    }];
   }
 
   private stepsToUploadAssembly(dir: string): github.JobStep[] {

@@ -2406,6 +2406,7 @@ const gitHubWorkflowProps: GitHubWorkflowProps = { ... }
 | <code><a href="#cdk-pipelines-github.GitHubWorkflowProps.property.awsCredentials">awsCredentials</a></code> | <code><a href="#cdk-pipelines-github.AwsCredentialsSecrets">AwsCredentialsSecrets</a></code> | Names of GitHub repository secrets that include AWS credentials for deployment. |
 | <code><a href="#cdk-pipelines-github.GitHubWorkflowProps.property.awsCreds">awsCreds</a></code> | <code><a href="#cdk-pipelines-github.AwsCredentialsProvider">AwsCredentialsProvider</a></code> | Configure provider for AWS credentials used for deployment. |
 | <code><a href="#cdk-pipelines-github.GitHubWorkflowProps.property.buildContainer">buildContainer</a></code> | <code><a href="#cdk-pipelines-github.ContainerOptions">ContainerOptions</a></code> | Build container options. |
+| <code><a href="#cdk-pipelines-github.GitHubWorkflowProps.property.cacheAssets">cacheAssets</a></code> | <code>boolean</code> | Whether or not to use `actions/cache` to store the synthesized `cdk.out` directory. Assets are stored for reuse in later steps. Stages with a large number of files as assets may see significantly faster build times when caching. Default behavior is to manage assets with `actions/upload-artifact` and `actions/download-artifact`. |
 | <code><a href="#cdk-pipelines-github.GitHubWorkflowProps.property.cdkCliVersion">cdkCliVersion</a></code> | <code>string</code> | Version of the CDK CLI to use. |
 | <code><a href="#cdk-pipelines-github.GitHubWorkflowProps.property.dockerCredentials">dockerCredentials</a></code> | <code><a href="#cdk-pipelines-github.DockerCredential">DockerCredential</a>[]</code> | The Docker Credentials to use to login. |
 | <code><a href="#cdk-pipelines-github.GitHubWorkflowProps.property.gitHubActionRoleArn">gitHubActionRoleArn</a></code> | <code>string</code> | A role that utilizes the GitHub OIDC Identity Provider in your AWS account. |
@@ -2477,6 +2478,21 @@ public readonly buildContainer: ContainerOptions;
 - *Default:* GitHub defaults
 
 Build container options.
+
+---
+
+##### `cacheAssets`<sup>Optional</sup> <a name="cacheAssets" id="cdk-pipelines-github.GitHubWorkflowProps.property.cacheAssets"></a>
+
+```typescript
+public readonly cacheAssets: boolean;
+```
+
+- *Type:* boolean
+- *Default:* false
+
+Whether or not to use `actions/cache` to store the synthesized `cdk.out` directory. Assets are stored for reuse in later steps. Stages with a large number of files as assets may see significantly faster build times when caching. Default behavior is to manage assets with `actions/upload-artifact` and `actions/download-artifact`.
+
+> [https://docs.github.com/en/actions/using-workflows/caching-dependencies-to-speed-up-workflows](https://docs.github.com/en/actions/using-workflows/caching-dependencies-to-speed-up-workflows)
 
 ---
 
